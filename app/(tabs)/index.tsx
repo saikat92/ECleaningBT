@@ -1,17 +1,16 @@
-import { useAuth } from '../../contexts/authContext';
-import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  FlatList, 
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import React from 'react';
+import {
   Dimensions,
+  FlatList,
   ScrollView,
+  StyleSheet,
+  Text,
   TouchableOpacity,
-  ImageBackground
+  View
 } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useAuth } from '../../contexts/authContext';
 
 const HomeDashboard = () => {
   const { user } = useAuth();

@@ -195,7 +195,7 @@ export default function Bluetooth() {
         {devices.length === 0 ? (
           <View style={styles.noDevicesContainer}>
             <MaterialCommunityIcons 
-              name={isBtEnabled ? "bluetooth-search" : "bluetooth-off"} 
+              name={isBtEnabled ? "bluetooth-transfer" : "bluetooth-off"} 
               size={48} 
               color="#bdc3c7" 
             />
