@@ -1,69 +1,134 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as Device from 'expo-device';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
-  ScrollView,
+  PermissionsAndroid,
+  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
   View
 } from 'react-native';
+import RNBluetoothClassic, { BluetoothDevice } from 'react-native-bluetooth-classic';
 
 export default function Bluetooth() {
   const [devices, setDevices] = useState<BluetoothDevice[]>([]);
   const [connectedDevice, setConnectedDevice] = useState<BluetoothDevice | null>(null);
   const [loading, setLoading] = useState(false);
   const [scanning, setScanning] = useState(false);
+  const [isBtEnabled, setIsBtEnabled] = useState(false);
 
-  const fetchDevices = async () => {
+  // Check Bluetooth status
+  const checkBluetooth = async () => {
+    try {
+      const enabled = await RNBluetoothClassic.isBluetoothEnabled();
+      setIsBtEnabled(enabled);
+      return enabled;
+    } catch (error) {
+      console.error('Bluetooth check failed', error);
+      return false;
+    }
+  };
+
+  // Request Bluetooth permissions
+ const requestPermissions = async () => {
+  if (Platform.OS === 'android') {
+    // Android permissions
+    const permissions = [
+      PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+      PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
+      PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+    ];
+    
+    if (Device.osVersion && parseInt(Device.osVersion, 10) < 12) {
+      permissions.splice(1, 2); // Remove BLUETOOTH_SCAN/CONNECT for older Android
+    }
+    
+    const granted = await PermissionsAndroid.requestMultiple(permissions);
+    return Object.values(granted).every(
+      status => status === PermissionsAndroid.RESULTS.GRANTED
+    );
+  } else {
+    // iOS permissions
+    const { status } = await Permissions.askAsync(Permissions.BLUETOOTH);
+    return status === 'granted';
+  }
+};
+
+  // Discover available devices
+  const discoverDevices = async () => {
     try {
       setScanning(true);
-      const available = await RNBluetoothClassic.getBondedDevices();
-      setDevices(available);
-    } catch (e) {
-      console.error('Error listing devices', e);
+      setDevices([]);
+      
+      const hasPermissions = await requestPermissions();
+      if (!hasPermissions) {
+        Alert.alert('Permissions required', 'Bluetooth and location permissions are needed to find devices');
+        return;
+      }
+
+      const enabled = await checkBluetooth();
+      if (!enabled) {
+        Alert.alert('Bluetooth disabled', 'Please enable Bluetooth to discover devices');
+        return;
+      }
+
+      const discovered = await RNBluetoothClassic.startDiscovery();
+      setDevices(discovered);
+    } catch (error) {
+      console.error('Discovery error', error);
+      Alert.alert('Error', 'Failed to discover devices: ' + error.message);
     } finally {
       setScanning(false);
     }
   };
 
+  // Connect to device
   const connectToDevice = async (device: BluetoothDevice) => {
     try {
       setLoading(true);
-      const connected = await device.connect();
-      if (connected) {
+      const isConnected = await device.connect();
+      
+      if (isConnected) {
         setConnectedDevice(device);
+      } else {
+        Alert.alert('Connection failed', 'Could not connect to the device');
       }
-    } catch (e) {
-      console.error('Connection failed', e);
-      alert(`Connection failed: ${e.message}`);
+    } catch (error) {
+      console.error('Connection error', error);
+      Alert.alert('Error', 'Connection failed: ' + error.message);
     } finally {
       setLoading(false);
     }
   };
 
+  // Disconnect device
   const disconnectDevice = async () => {
     if (connectedDevice) {
       try {
         setLoading(true);
         await connectedDevice.disconnect();
         setConnectedDevice(null);
-      } catch (e) {
-        console.error('Disconnection failed', e);
+      } catch (error) {
+        console.error('Disconnection error', error);
+        Alert.alert('Error', 'Disconnection failed: ' + error.message);
       } finally {
         setLoading(false);
       }
     }
   };
 
+  // Initial check
   useEffect(() => {
-    fetchDevices();
+    checkBluetooth();
   }, []);
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      {/* Header */}
+    <View style={styles.container}>
+      {/* Header Section */}
       <View style={styles.header}>
         <MaterialCommunityIcons name="bluetooth" size={32} color="#3498db" />
         <Text style={styles.title}>Bluetooth Connection</Text>
@@ -110,13 +175,13 @@ export default function Bluetooth() {
         )}
       </View>
 
-      {/* Device List */}
+      {/* Device Discovery Section */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Available Devices</Text>
           <TouchableOpacity 
             style={styles.refreshButton}
-            onPress={fetchDevices}
+            onPress={discoverDevices}
             disabled={scanning}
           >
             {scanning ? (
@@ -129,22 +194,29 @@ export default function Bluetooth() {
         
         {devices.length === 0 ? (
           <View style={styles.noDevicesContainer}>
-            <MaterialCommunityIcons name="bluetooth-search" size={48} color="#bdc3c7" />
-            <Text style={styles.noDevicesText}>No devices found</Text>
-            <Text style={styles.noDevicesHint}>Make sure your device is powered on and in pairing mode</Text>
+            <MaterialCommunityIcons 
+              name={isBtEnabled ? "bluetooth-search" : "bluetooth-off"} 
+              size={48} 
+              color="#bdc3c7" 
+            />
+            <Text style={styles.noDevicesText}>
+              {scanning ? "Scanning..." : "No devices found"}
+            </Text>
+            <Text style={styles.noDevicesHint}>
+              {!isBtEnabled 
+                ? "Bluetooth is disabled. Please enable Bluetooth to discover devices" 
+                : "Make sure your device is powered on and in pairing mode"}
+            </Text>
           </View>
         ) : (
           <FlatList
             data={devices}
-            scrollEnabled={false}
+            scrollEnabled={true}
             keyExtractor={(item) => item.address}
             contentContainerStyle={styles.deviceList}
             renderItem={({ item }) => (
               <TouchableOpacity
-                style={[
-                  styles.deviceButton,
-                  connectedDevice?.address === item.address && styles.deviceButtonConnected
-                ]}
+                style={styles.deviceButton}
                 onPress={() => connectToDevice(item)}
                 disabled={!!connectedDevice || loading}
               >
@@ -152,33 +224,23 @@ export default function Bluetooth() {
                   <MaterialCommunityIcons 
                     name="bluetooth" 
                     size={24} 
-                    color={connectedDevice?.address === item.address ? "#2ecc71" : "#3498db"} 
+                    color="#3498db" 
                   />
                   <View style={styles.deviceTextContainer}>
-                    <Text 
-                      style={[
-                        styles.deviceName,
-                        connectedDevice?.address === item.address && styles.connectedDeviceText
-                      ]}
-                    >
+                    <Text style={styles.deviceName}>
                       {item.name || "Unknown Device"}
                     </Text>
                     <Text style={styles.deviceAddress}>{item.address}</Text>
                   </View>
                 </View>
-                
-                {connectedDevice?.address === item.address ? (
-                  <MaterialCommunityIcons name="check-circle" size={24} color="#2ecc71" />
-                ) : (
-                  <MaterialCommunityIcons name="chevron-right" size={24} color="#7f8c8d" />
-                )}
+                <MaterialCommunityIcons name="chevron-right" size={24} color="#7f8c8d" />
               </TouchableOpacity>
             )}
           />
         )}
       </View>
 
-      {/* Connection Help */}
+      {/* Connection Help Section */}
       <View style={styles.helpCard}>
         <View style={styles.helpHeader}>
           <MaterialCommunityIcons name="help-circle" size={24} color="#3498db" />
@@ -201,12 +263,13 @@ export default function Bluetooth() {
           <Text style={styles.helpText}>Keep your phone within 3 meters of the device</Text>
         </View>
       </View>
-    </ScrollView>
+    </View>
   );
 }
 
+// Styles remain the same as in your original code
 const styles = StyleSheet.create({
-  container: {
+   container: {
     flex: 1,
     backgroundColor: '#f8f9fa',
   },

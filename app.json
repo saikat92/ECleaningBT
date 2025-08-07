@@ -1,28 +1,41 @@
 {
   "expo": {
     "name": "ECleaningBT",
-    "slug": "ECleaningBT",
+    "slug": "e-cleaning",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "ecleaningbt",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "doctor": {
+      "reactNativeDirectoryCheck": {
+        "exclude": ["react-native-bluetooth-classic", "@fortawesome/fontawesome-free", "firebase"]
+      }
+    },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSBluetoothAlwaysUsageDescription": "Allow Bluetooth access to connect to E-Cleaning devices",
+        "NSBluetoothPeripheralUsageDescription": "Allow Bluetooth access to connect to E-Cleaning devices"
+      }
     },
     "android": {
       "permissions": [
         "android.permission.BLUETOOTH",
         "android.permission.BLUETOOTH_ADMIN",
         "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.ACCESS_COARSE_LOCATION"
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.BLUETOOTH_SCAN",
+        "android.permission.BLUETOOTH_CONNECT"
       ],
+      
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "softwareKeyboardLayoutMode": "resize",
+      "package": "com.araneus.ECleaningBT"
     },
     "web": {
       "bundler": "metro",
@@ -39,11 +52,19 @@
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
-      ],
-      "expo-bluetooth"
+      ]
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "cc54003b-2244-47a7-92c0-dc31bb09e932"
+      }
+    },
+    "owner": "araneus"
   }
 }
